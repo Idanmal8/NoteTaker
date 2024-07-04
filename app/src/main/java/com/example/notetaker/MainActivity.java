@@ -1,6 +1,8 @@
 package com.example.notetaker;
 
 import android.Manifest;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -10,16 +12,24 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.DatePicker;
+import android.widget.TimePicker;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,9 +45,12 @@ public class MainActivity extends AppCompatActivity {
 
     private SpeechRecognizer speechRecognizer;
     private Intent speechRecognizerIntent;
+    private EditText noteTextField; // Member variable for EditText
+    private TextView dateTimeTextView; // TextView for date and time
 
     private boolean permissionToRecordAccepted = false;
     private String[] permissions = {Manifest.permission.RECORD_AUDIO};
+    private String noteTextController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,8 +111,9 @@ public class MainActivity extends AppCompatActivity {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String transcribedText = matches.get(0);
+                    noteTextController += transcribedText + " ";
                     Log.d(TAG, "Transcription result: " + transcribedText);
-                    addNoteToList(transcribedText);
+                    setNoteTextField(noteTextController);
                 } else {
                     Log.d(TAG, "No transcription result");
                 }
@@ -122,9 +136,12 @@ public class MainActivity extends AppCompatActivity {
         final BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(MainActivity.this);
         bottomSheetDialog.setContentView(R.layout.bottom_sheet_layout);
 
-        final EditText noteTextField = bottomSheetDialog.findViewById(R.id.noteTextField);
+        noteTextField = bottomSheetDialog.findViewById(R.id.noteTextField); // Initialize the EditText
         ImageButton recordButton = bottomSheetDialog.findViewById(R.id.recordButton);
         ImageButton sendButton = bottomSheetDialog.findViewById(R.id.sendButton);
+        dateTimeTextView = bottomSheetDialog.findViewById(R.id.btn_open_date_time_picker);
+        updateDateTime();
+        //check that dateTimeTextView is not null before calling setText
 
         assert recordButton != null;
         recordButton.setOnClickListener(new View.OnClickListener() {
@@ -158,7 +175,23 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        assert dateTimeTextView != null;
+        dateTimeTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showDateTimePicker();
+            }
+        });
+
         bottomSheetDialog.show();
+    }
+
+    private void setNoteTextField(String noteText) {
+        Log.d(TAG, "setNoteTextField: " + noteText);
+        if (noteTextField != null) {
+            Log.d(TAG, "setNoteTextField2: " + noteText);
+            noteTextField.setText(noteText);
+        }
     }
 
     private void addNoteToList(String noteText) {
@@ -173,6 +206,43 @@ public class MainActivity extends AppCompatActivity {
         } else {
             placeholderTextView.setVisibility(View.GONE);
         }
+    }
+
+    private void updateDateTime() {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm dd-MM-yyyy", Locale.getDefault());
+        Log.d(TAG, "updateDateTime: " + sdf.format(new Date().getTime()));
+        String currentDateTime = sdf.format(new Date().getTime());
+        dateTimeTextView.setText(currentDateTime);
+    }
+
+    private void showDateTimePicker() {
+        final Calendar currentDate = Calendar.getInstance();
+        final Calendar selectedDate = Calendar.getInstance();
+
+        DatePickerDialog datePickerDialog = new DatePickerDialog(MainActivity.this, new DatePickerDialog.OnDateSetListener() {
+            @Override
+            public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
+                selectedDate.set(Calendar.YEAR, year);
+                selectedDate.set(Calendar.MONTH, month);
+                selectedDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+
+                TimePickerDialog timePickerDialog = new TimePickerDialog(MainActivity.this, new TimePickerDialog.OnTimeSetListener() {
+                    @Override
+                    public void onTimeSet(TimePicker view, int hourOfDay, int minute) {
+                        selectedDate.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                        selectedDate.set(Calendar.MINUTE, minute);
+
+                        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm dd-MM-yyyy", Locale.getDefault());
+                        String selectedDateTime = sdf.format(selectedDate.getTime());
+                        dateTimeTextView.setText(selectedDateTime);
+                    }
+                }, currentDate.get(Calendar.HOUR_OF_DAY), currentDate.get(Calendar.MINUTE), true);
+
+                timePickerDialog.show();
+            }
+        }, currentDate.get(Calendar.YEAR), currentDate.get(Calendar.MONTH), currentDate.get(Calendar.DAY_OF_MONTH));
+
+        datePickerDialog.show();
     }
 
     @Override
