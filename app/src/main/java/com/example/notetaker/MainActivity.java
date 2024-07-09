@@ -1,12 +1,18 @@
 package com.example.notetaker;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.app.AlarmManager;
 import android.app.DatePickerDialog;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -21,6 +27,7 @@ import android.widget.DatePicker;
 import android.widget.TimePicker;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -68,12 +75,15 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        createNotificationChannel();
 
         ActivityCompat.requestPermissions(this, permissions, REQUEST_RECORD_AUDIO_PERMISSION);
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
 
         placeholderTextView = findViewById(R.id.placeholderTextView);
         noteList = new ArrayList<>();
@@ -213,6 +223,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!noteText.isEmpty()) {
                     addNoteToList(noteText);
                     bottomSheetDialog.dismiss();
+                    setNotification(noteText, "Temp Description", dateTimeTextView.getText().toString()); //TODO: Update date and description
                 }
             }
         });
@@ -226,6 +237,31 @@ public class MainActivity extends AppCompatActivity {
         });
 
         bottomSheetDialog.show();
+    }
+
+    @SuppressLint("ScheduleExactAlarm")
+    private void setNotification(String title, String description, String date) {
+        Intent intent = new Intent(MainActivity.this, ReminderBroadcast.class);
+
+        // Set the title of the alarm notification
+        intent.putExtra("title", title);
+        intent.putExtra("description", description);
+
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        // Set the alarm to trigger at the specified time we got as input
+        Date alarmTime = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm dd-MM-yyyy", Locale.getDefault());
+        try {
+            alarmTime = sdf.parse(date);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        assert alarmTime != null;
+        long reminderTime = alarmTime.getTime();
+        alarmManager.setExact(AlarmManager.RTC_WAKEUP, reminderTime, pendingIntent);
     }
 
     private void setNoteTextField(String noteText) {
@@ -327,6 +363,19 @@ public class MainActivity extends AppCompatActivity {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void createNotificationChannel() {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "NoteTakerReminderChannel";
+            String description = "Channel for NoteTaker Reminder";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel("note_taker_reminder", name, importance);
+            channel.setDescription(description);
+
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
         }
     }
 }
