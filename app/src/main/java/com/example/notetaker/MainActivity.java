@@ -5,12 +5,17 @@ import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.DatePicker;
 import android.widget.TimePicker;
@@ -26,6 +31,7 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -52,6 +58,16 @@ public class MainActivity extends AppCompatActivity {
     private String[] permissions = {Manifest.permission.RECORD_AUDIO};
     private String noteTextController;
 
+    // Member variables for the selected image
+    private LinearLayout imageContainer;
+    private ImageView selectedImageView;
+    private Uri imageUri;
+
+    // Constants for image selection
+    private static final int PICK_IMAGE_REQUEST = 1;
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,6 +91,8 @@ public class MainActivity extends AppCompatActivity {
                 showBottomSheetDialog();
             }
         });
+
+
 
         updatePlaceholderVisibility();
 
@@ -139,9 +157,33 @@ public class MainActivity extends AppCompatActivity {
         noteTextField = bottomSheetDialog.findViewById(R.id.noteTextField); // Initialize the EditText
         ImageButton recordButton = bottomSheetDialog.findViewById(R.id.recordButton);
         ImageButton sendButton = bottomSheetDialog.findViewById(R.id.sendButton);
+        ImageButton addImageButton = bottomSheetDialog.findViewById(R.id.addImage);
         dateTimeTextView = bottomSheetDialog.findViewById(R.id.btn_open_date_time_picker);
+
+        imageContainer = bottomSheetDialog.findViewById(R.id.imageContainer);
+        selectedImageView = bottomSheetDialog.findViewById(R.id.selectedImageView);
+        Button removeImageButton = bottomSheetDialog.findViewById(R.id.removeImageButton);
+
         updateDateTime();
         //check that dateTimeTextView is not null before calling setText
+
+        // Image selection handling
+        addImageButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openImagePicker();
+            }
+        });
+
+        // Remove image handling
+        removeImageButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                imageContainer.setVisibility(View.GONE);
+                selectedImageView.setVisibility(View.GONE);
+                imageUri = null;
+            }
+        });
 
         assert recordButton != null;
         recordButton.setOnClickListener(new View.OnClickListener() {
@@ -262,6 +304,29 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         if (speechRecognizer != null) {
             speechRecognizer.destroy();
+        }
+    }
+
+    private void openImagePicker() {
+        Intent intent = new Intent();
+        intent.setType("image/*");
+        intent.setAction(Intent.ACTION_GET_CONTENT);
+        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            imageUri = data.getData();
+            try {
+                Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
+                selectedImageView.setImageBitmap(bitmap);
+                imageContainer.setVisibility(View.VISIBLE);
+                selectedImageView.setVisibility(View.VISIBLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
